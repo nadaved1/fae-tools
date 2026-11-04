@@ -4,9 +4,9 @@ vcd_activity.py - per-time-unit signal switching activity from a VCD file.
 
 By default the script reports, for every native VCD timestamp (the lines that
 start with '#'), how many of the design's signals changed value at that time,
-as a percentage of all signals.  Optionally it can instead bucket activity per
-clock cycle (--by-clock) and/or render a dark-themed interactive HTML graph
-(--html).
+as a percentage of all signals, and renders a dark-themed interactive HTML
+graph of it (skip with --no-html).  Optionally it can instead bucket activity
+per clock cycle (--by-clock).
 
 The VCD is streamed line by line (never loaded whole), so it scales to very
 large traces.  The only state kept in memory is the last value of each signal,
@@ -18,10 +18,11 @@ Synopsys NPI by the fsdb_activity helper (see fsdb_activity/README.md), so no
 fsdb2vcd conversion is needed.
 
 Usage:
-    python vcd_activity.py trace.vcd                         # -> trace.activity.csv
-    python vcd_activity.py trace.vcd --html                  # + trace.activity.html
+    python vcd_activity.py trace.vcd             # -> trace.activity.csv + .html
+    python vcd_activity.py trace.vcd --no-html   # CSV only
     python vcd_activity.py trace.vcd --by-clock --clock clk
-    python vcd_activity.py trace.fsdb --html                 # FSDB via NPI
+    python vcd_activity.py trace.fsdb            # FSDB via NPI
+    python vcd_activity.py trace.activity.csv    # HTML only, from a CSV
 """
 
 import argparse
@@ -1654,10 +1655,13 @@ def main():
                     help='restrict the report to the sub-hierarchy rooted at '
                          'this dotted scope path (e.g. top.core.alu); matches '
                          'on whole path components. Default: whole design')
-    ap.add_argument('--html', nargs='?', const='__AUTO__', default=None,
+    ap.add_argument('--html', nargs='?', const='__AUTO__', default='__AUTO__',
                     metavar='PATH',
-                    help='also render a dark-themed interactive HTML graph '
-                         '(optional output path)')
+                    help='HTML graph output path (the dark-themed interactive '
+                         'graph is written by default to '
+                         '<input>.activity.html)')
+    ap.add_argument('--no-html', action='store_true',
+                    help='skip the HTML graph; write only the CSV')
     ap.add_argument('--timescale', metavar='UNIT',
                     help='x-axis time unit label when the input is a .csv '
                          '(e.g. 1ps); the CSV does not record it')
@@ -1722,8 +1726,15 @@ def main():
         args.avg = 1
 
     if args.vcd.lower().endswith('.csv'):
+        if args.no_html:
+            sys.stderr.write('error: --no-html with a .csv input leaves '
+                             'nothing to do.\n')
+            sys.exit(1)
         run_csv(args)
         return
+
+    if args.no_html:
+        args.html = None
 
     if _is_fsdb(args.vcd):
         run_fsdb(args, time.perf_counter())

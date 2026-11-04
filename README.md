@@ -3,16 +3,16 @@
 ## vcd_activity.py
 
 Per-timestamp signal switching activity (how many signals changed, as a % of
-all signals) from a VCD or FSDB, with an optional interactive HTML graph.
+all signals) from a VCD or FSDB, as a CSV plus an interactive HTML graph.
 Python 3, standard library only.
 
 ```bash
-python vcd_activity.py trace.vcd                   # -> trace.activity.csv
-python vcd_activity.py trace.vcd --html            # + trace.activity.html
+python vcd_activity.py trace.vcd                   # -> trace.activity.csv + .html
+python vcd_activity.py trace.vcd --no-html         # CSV only
 python vcd_activity.py trace.vcd --html out.html   # custom HTML path
 python vcd_activity.py trace.vcd --scope top.core  # one sub-tree
 python vcd_activity.py trace.vcd --by-clock --clock clk --edge rising
-python vcd_activity.py trace.fsdb --html           # FSDB, see below
+python vcd_activity.py trace.fsdb                  # FSDB, see below
 python vcd_activity.py trace.activity.csv          # HTML only, from an existing CSV
 ```
 
@@ -26,7 +26,8 @@ Common options:
 | Option | Meaning |
 | --- | --- |
 | `-o FILE` | output CSV (default `<input>.activity.csv`) |
-| `--html [PATH]` | also write the HTML graph |
+| `--html PATH` | HTML graph path (default `<input>.activity.html`) |
+| `--no-html` | skip the HTML graph (and the extra analysis pass it needs) |
 | `--scope PATH` | restrict to a dotted scope, e.g. `top.core.alu` |
 | `--by-clock` | one bucket per clock cycle (`--clock`, `--edge`, `--include-clock`) |
 | `--avg N` | average every N buckets |
@@ -58,8 +59,8 @@ Running needs a Verdi license (or FSDB+DevKit) reachable through
 **Use through the script** (the usual way):
 
 ```bash
-python vcd_activity.py run.fsdb --html
-python vcd_activity.py run.fsdb --html --scope top.core --ncores 4
+python vcd_activity.py run.fsdb
+python vcd_activity.py run.fsdb --scope top.core --ncores 4
 ```
 
 The script finds the helper via `--fsdb-reader PATH`, `$FSDB_ACTIVITY`,
