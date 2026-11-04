@@ -13,7 +13,13 @@ python vcd_activity.py trace.vcd --html out.html   # custom HTML path
 python vcd_activity.py trace.vcd --scope top.core  # one sub-tree
 python vcd_activity.py trace.vcd --by-clock --clock clk --edge rising
 python vcd_activity.py trace.fsdb --html           # FSDB, see below
+python vcd_activity.py trace.activity.csv          # HTML only, from an existing CSV
 ```
+
+Given a report `.csv` instead of a waveform, the tool just renders the HTML
+graph (to `<name>.html`, or `--html PATH`) without re-parsing anything. The
+CSV holds only the activity series, so that page has no hierarchy, similarity
+overlay or dump metadata.
 
 Common options:
 
@@ -25,6 +31,7 @@ Common options:
 | `--by-clock` | one bucket per clock cycle (`--clock`, `--edge`, `--include-clock`) |
 | `--avg N` | average every N buckets |
 | `--no-xz` | ignore transitions into/out of x/z |
+| `--timescale UNIT` | x-axis unit label for `.csv` input (the CSV doesn't record it) |
 | `--max-points N` | cap points embedded in the HTML (default 100000, 0 = all) |
 | `--no-hierarchy`, `--no-similarity` | drop those HTML sections to shrink the file |
 | `--ncores N` | parse on N processes (0 = all cores) |
