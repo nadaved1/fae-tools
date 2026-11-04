@@ -4,9 +4,9 @@ vcd_activity.py - per-time-unit signal switching activity from a VCD file.
 
 By default the script reports, for every native VCD timestamp (the lines that
 start with '#'), how many of the design's signals changed value at that time,
-as a percentage of all signals.  Optionally it can instead bucket activity per
-clock cycle (--by-clock) and/or render a dark-themed interactive HTML graph
-(--html).
+as a percentage of all signals, and renders a dark-themed interactive HTML
+graph of it (skip with --no-html).  Optionally it can instead bucket activity
+per clock cycle (--by-clock).
 
 The VCD is streamed line by line (never loaded whole), so it scales to very
 large traces.  The only state kept in memory is the last value of each signal,
@@ -18,10 +18,11 @@ Synopsys NPI by the fsdb_activity helper (see fsdb_activity/README.md), so no
 fsdb2vcd conversion is needed.
 
 Usage:
-    python vcd_activity.py trace.vcd                         # -> trace.activity.csv
-    python vcd_activity.py trace.vcd --html                  # + trace.activity.html
+    python vcd_activity.py trace.vcd             # -> trace.activity.csv + .html
+    python vcd_activity.py trace.vcd --no-html   # CSV only
     python vcd_activity.py trace.vcd --by-clock --clock clk
-    python vcd_activity.py trace.fsdb --html                 # FSDB via NPI
+    python vcd_activity.py trace.fsdb            # FSDB via NPI
+    python vcd_activity.py trace.activity.csv    # HTML only, from a CSV
 """
 
 import argparse
@@ -1594,22 +1595,76 @@ def run_fsdb(args, t0):
                         human_time(time.perf_counter() - t0), out_path))
 
 
+def run_csv(args):
+    """Render the HTML graph from an existing report CSV (no waveform parse).
+
+    The CSV carries only the activity series, so the page has no hierarchy,
+    similarity overlay or dump metadata; --timescale labels the x axis.
+    """
+    try:
+        with open(args.vcd, newline='') as fh:
+            r = csv.DictReader(fh)
+            cols = r.fieldnames or []
+            first = next(r, None)
+    except OSError as e:
+        sys.stderr.write('error: %s\n' % e)
+        sys.exit(1)
+    if 'percent_changed' not in cols or \
+            not ('time' in cols or 'start_time' in cols):
+        sys.stderr.write('error: %s is not a vcd_activity report CSV (needs '
+                         'time/start_time and percent_changed columns).\n'
+                         % args.vcd)
+        sys.exit(1)
+    if first is None:
+        sys.stderr.write('error: %s has no data rows.\n' % args.vcd)
+        sys.exit(1)
+
+    unit = args.timescale or 'time units'
+    by_clock = 'start_time' in cols
+    xlabel = 'time (%s)%s' % (unit, ' - cycle start' if by_clock else '')
+    with open(args.vcd, newline='') as fh:
+        rows = max(0, sum(1 for _ in fh) - 1)
+    subtitle = '%s signals | %d %s' % (
+        first.get('total_signals', '?'), rows,
+        'clock buckets' if by_clock else 'points')
+    if 'avg_signals_changed' in cols:
+        subtitle += ' (averaged)'
+    subtitle += ' | from CSV'
+
+    base = args.vcd[:-4] if args.vcd.lower().endswith('.csv') else args.vcd
+    html_path = args.html if args.html not in (None, '__AUTO__') \
+        else base + '.html'
+    title = 'Switching activity - %s' % os.path.basename(args.vcd)
+    generated = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')
+    meta = {'version': None, 'date': None, 'timescale': args.timescale}
+    render_html(args.vcd, html_path, title, subtitle, xlabel, generated,
+                args.max_points, meta, os.path.getsize(args.vcd) or 1)
+    sys.stderr.write('html: %s\n' % html_path)
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="Per-time-unit (or per-clock) signal switching activity "
                     "from a VCD file.")
-    ap.add_argument('vcd', help='input VCD file (.vcd, .vcd.gz) or FSDB '
-                                '(.fsdb, read via the fsdb_activity helper)')
+    ap.add_argument('vcd', help='input VCD file (.vcd, .vcd.gz), FSDB '
+                                '(.fsdb, read via the fsdb_activity helper), '
+                                'or a report .csv to render as HTML only')
     ap.add_argument('-o', '--output',
                     help='output CSV (default: <input>.activity.csv)')
     ap.add_argument('--scope', metavar='PATH',
                     help='restrict the report to the sub-hierarchy rooted at '
                          'this dotted scope path (e.g. top.core.alu); matches '
                          'on whole path components. Default: whole design')
-    ap.add_argument('--html', nargs='?', const='__AUTO__', default=None,
+    ap.add_argument('--html', nargs='?', const='__AUTO__', default='__AUTO__',
                     metavar='PATH',
-                    help='also render a dark-themed interactive HTML graph '
-                         '(optional output path)')
+                    help='HTML graph output path (the dark-themed interactive '
+                         'graph is written by default to '
+                         '<input>.activity.html)')
+    ap.add_argument('--no-html', action='store_true',
+                    help='skip the HTML graph; write only the CSV')
+    ap.add_argument('--timescale', metavar='UNIT',
+                    help='x-axis time unit label when the input is a .csv '
+                         '(e.g. 1ps); the CSV does not record it')
     ap.add_argument('--max-points', type=int, default=100000, metavar='N',
                     help='cap points embedded in the HTML via min/max '
                          'decimation, keeping spikes (default: 100000; '
@@ -1669,6 +1724,17 @@ def main():
         args.ncores = cores
     if args.avg < 1:
         args.avg = 1
+
+    if args.vcd.lower().endswith('.csv'):
+        if args.no_html:
+            sys.stderr.write('error: --no-html with a .csv input leaves '
+                             'nothing to do.\n')
+            sys.exit(1)
+        run_csv(args)
+        return
+
+    if args.no_html:
+        args.html = None
 
     if _is_fsdb(args.vcd):
         run_fsdb(args, time.perf_counter())

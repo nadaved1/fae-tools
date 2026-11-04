@@ -22,15 +22,15 @@ through `LM_LICENSE_FILE` / `SNPSLMD_LICENSE_FILE`.
 ## Use
 
 ```bash
-vcd_activity.py run.fsdb --html                     # whole design
-vcd_activity.py run.fsdb --html --scope top.core    # one sub-tree
+vcd_activity.py run.fsdb                     # whole design
+vcd_activity.py run.fsdb --scope top.core    # one sub-tree
 ```
 
 `vcd_activity.py` finds the helper at `--fsdb-reader PATH`, `$FSDB_ACTIVITY`,
 `fsdb_activity/fsdb_activity` next to the script, or on `$PATH`.
 
 Supported with FSDB input: native per-timestamp mode, `--scope`, `--no-xz`,
-`--avg`, `--html`, `--max-points`, `--ncores`. Not yet: `--by-clock`, and the
+`--avg`, `--html`/`--no-html`, `--max-points`, `--ncores`. Not yet: `--by-clock`, and the
 hierarchy heatmap / similarity overlay in the HTML.
 
 `--ncores N` runs N `fsdb_activity --part k/N` processes, each in its own
